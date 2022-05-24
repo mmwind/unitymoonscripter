@@ -3,14 +3,50 @@ using MoonSharp.Interpreter;
 using TMPro;
 using System;
 using MoonSharp.Interpreter.Loaders;
+using Assets;
+using UnityEngine.UI;
+using System.IO;
 
 public class LuaEngine : MonoBehaviour
 {
+    
     [SerializeField]  public string lua_scripts_path = ".\\";
     [SerializeField]  public TMP_Text caption_field;
     [SerializeField]  public TMP_Text text_field;
+    [SerializeField]  public Image img_field;
 
     private Script scripting = new Script();
+
+    private Sprite LoadNewSprite(string FilePath, float PixelsPerUnit = 100.0f)
+    {
+
+        // Load a PNG or JPG image from disk to a Texture2D, assign this texture to a new sprite and return its reference
+        Texture2D SpriteTexture = LoadTexture(FilePath);
+        Sprite NewSprite = Sprite.Create(SpriteTexture, new Rect(0, 0, SpriteTexture.width, SpriteTexture.height), new Vector2(0, 0), PixelsPerUnit);
+
+        return NewSprite;
+    }
+
+    private Texture2D LoadTexture(string FilePath)
+    {
+
+        // Load a PNG or JPG file from disk to a Texture2D
+        // Returns null if load fails
+
+        Texture2D Tex2D;
+        byte[] FileData;
+
+        if (File.Exists(FilePath))
+        {
+            FileData = File.ReadAllBytes(FilePath);
+            Tex2D = new Texture2D(2, 2);           // Create new "empty" texture
+            if (Tex2D.LoadImage(FileData))           // Load the imagedata into the texture (size is set automatically)
+                return Tex2D;                 // If data = readable -> return texture
+        }
+        return null;                     // Return null if load failed
+    }
+
+    
 
     void redraw()
     {
@@ -29,7 +65,11 @@ public class LuaEngine : MonoBehaviour
     }
     void setImage(string imageName)
     {
-
+        string s = lua_scripts_path + imageName;
+        Debug.Log($"setImage {s}");
+        //Sprite spr = Resources.Load<Sprite>(lua_scripts_path + imageName);
+        Sprite spr = LoadNewSprite(lua_scripts_path + imageName);
+        img_field.sprite = spr;
     }
 
     void setInvText(string text)
@@ -37,6 +77,24 @@ public class LuaEngine : MonoBehaviour
 
     }
 
+    void print_lua(params string[] subjects)
+    {
+        string outp = "";
+        foreach(string s in subjects)
+        {
+            outp = outp + s + " ";
+        }
+        Debug.Log(outp);
+    }
+
+    public void playAudio(string filename)
+    {
+        Debug.Log($"Audio: {filename}");
+    }
+    public void stopAudio()
+    {
+        Debug.Log("Audio stop");
+    }
     void Start()
     {
         scripting.Globals["platform"] = "Unity";
@@ -45,18 +103,15 @@ public class LuaEngine : MonoBehaviour
         scripting.Globals["setTitle"] = (Action<string>)setTitle;
         scripting.Globals["setImage"] = (Action<string>)setImage;
         scripting.Globals["setInvText"] = (Action<string>)setInvText;
-        // scripting.Globals["redraw"] = (Action)redraw;
+        scripting.Globals["print"] = (Action<string[]>)print_lua;
+        scripting.Globals["unity_audio_play"] = (Action<string>)playAudio;
+        scripting.Globals["unity_audio_stop"] = (Action)stopAudio;
 
-
-
-        var loader = new FileSystemScriptLoader();
-        //scripting.RequireModule("E:\\Gamedev\\LuaWorldWrapper\\LuaWorldUnity\\testdir\\test.lua");
-        //scripting.Global
+        //var loader = new FileSystemScriptLoader();
+        var loader = new Loader();
+        loader.ModulePaths.Add(lua_scripts_path); 
         scripting.Options.ScriptLoader = loader;
-        //loader.ModulePaths = new string[] { lua_scripts_path + "\\?", lua_scripts_path + "\\?.lua" };
-        loader.ModulePaths= new string[] { $"{lua_scripts_path}\\?", $"{lua_scripts_path}\\?.lua" };
-
-        scripting.DoFile("testdir/test.lua", scripting.Globals);
         scripting.DoFile("main.lua", scripting.Globals);
+        //scripting.DoFile("hello1.lua", scripting.Globals);
     }
 }
